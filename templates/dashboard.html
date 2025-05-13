@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chart.js/3.7.0/chart.min.css">
+<style>
+    .stat-card {
+        transition: all 0.3s;
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+    }
+    .impact-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Your Eco-Dashboard</h1>
+    <a href="{{ url_for('route_comparison') }}" class="btn btn-success">
+        <i class="fas fa-plus-circle"></i> Plan New Route
+    </a>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card stat-card h-100 border-success">
+            <div class="card-body text-center">
+                <div class="impact-icon text-success">
+                    <i class="fas fa-leaf"></i>
+                </div>
+                <h5 class="card-title">Carbon Saved</h5>
+                <h2 class="display-5 text-success">{{ (total_carbon_saved / 1000)|round(1) }} kg</h2>
+                <p class="text-muted">CO₂ not released into the atmosphere</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card h-100 border-success">
+            <div class="card-body text-center">
+                <div class="impact-icon text-success">
+                    <i class="fas fa-route"></i>
+                </div>
+                <h5 class="card-title">Routes Taken</h5>
+                <h2 class="display-5 text-success">{{ saved_routes|length }}</h2>
+                <p class="text-muted">Eco-friendly journeys logged</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card h-100 border-success">
+            <div class="card-body text-center">
+                <div class="impact-icon text-success">
+                    <i class="fas fa-tree"></i>
+                </div>
+                <h5 class="card-title">Equivalent Impact</h5>
+                <h2 class="display-5 text-success">{{ (total_carbon_saved / 21000 * 365)|round|int }}</h2>
+                <p class="text-muted">Tree-days of carbon absorption</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">Carbon Savings Over Time</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="savingsChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">Transportation Choices</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="transportChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Your Saved Routes</h5>
+                <button class="btn btn-sm btn-light" id="toggleTable">
+                    <i class="fas fa-sort"></i> Sort by Date
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Route</th>
+                                <th>Transportation</th>
+                                <th>Distance</th>
+                                <th>Carbon Saved</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for route in saved_routes %}
+                            <tr>
+                                <td>{{ route.date_saved.strftime('%Y-%m-%d') }}</td>
+                                <td>{{ route.route.start_location }} to {{ route.route.end_location }}</td>
+                                <td class="text-capitalize">{{ route.transport_mode }}</td>
+                                <td>{{ route.route.distance }} km</td>
+                                <td>{{ route.carbon_saved|round|int }} g</td>
+                                <td>
+                                    <a href="{{ url_for('route_comparison') }}?start={{ route.route.start_location }}&end={{ route.route.end_location }}" class="btn btn-sm btn-outline-success">
+                                        <i class="fas fa-redo"></i> Reuse
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chart.js/3.7.0/chart.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const transportCtx = document.getElementById('transportChart').getContext('2d');
+    
+    const transportModes = {
+        'walking': 0,
+        'biking': 0,
+        'bus': 0,
+        'train': 0,
+        'car': 0,
+        'rideshare': 0
+    };
+    
+    {% for route in saved_routes %}
+    if (transportModes.hasOwnProperty('{{ route.transport_mode }}')) {
+        transportModes['{{ route.transport_mode }}']++;
+    }
+    {% endfor %}
+    
+    const transportChart = new Chart(transportCtx, {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(transportModes).map(mode => mode.charAt(0).toUpperCase() + mode.slice(1)),
+            datasets: [{
+                data: Object.values(transportModes),
+                backgroundColor: [
+                    '#28a745',
+                    '#20c997', 
+                    '#fd7e14',
+                    '#6f42c1', 
+                    '#dc3545',
+                    '#e83e8c'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'right',
+                }
+            }
+        }
+    });
+    
+    const savingsCtx = document.getElementById('savingsChart').getContext('2d');
+    
+    const savingsByDate = {};
+    {% for route in saved_routes %}
+    const date = '{{ route.date_saved.strftime("%Y-%m-%d") }}';
+    if (!savingsByDate[date]) {
+        savingsByDate[date] = 0;
+    }
+    savingsByDate[date] += {{ route.carbon_saved }};
+    {% endfor %}
+    
+    const dates = Object.keys(savingsByDate).sort();
+    const cumulativeSavings = [];
+    let total = 0;
+    
+    for (const date of dates) {
+        total += savingsByDate[date];
+        cumulativeSavings.push({
+            date: date,
+            savings: total / 1000
+        });
+    }
+    
+    const savingsChart = new Chart(savingsCtx, {
+        type: 'line',
+        data: {
+            labels: cumulativeSavings.map(item => item.date),
+            datasets: [{
+                label: 'Cumulative Carbon Savings (kg)',
+                data: cumulativeSavings.map(item => item.savings),
+                borderColor: '#28a745',
+                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `Carbon Saved: ${context.parsed.y.toFixed(2)} kg`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        display: false
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Carbon Saved (kg)'
+                    }
+                }
+            }
+        }
+    });
+    
+    let sortAscending = true;
+    const toggleTableBtn = document.getElementById('toggleTable');
+    
+    toggleTableBtn.addEventListener('click', function() {
+        const table = document.querySelector('table');
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+ 
+        rows.sort((a, b) => {
+            const dateA = new Date(a.cells[0].textContent);
+            const dateB = new Date(b.cells[0].textContent);
+            
+            return sortAscending ? dateA - dateB : dateB - dateA;
+        });
+        
+        while (tbody.firstChild) {
+            tbody.removeChild(tbody.firstChild);
+        }
+        
+        rows.forEach(row => tbody.appendChild(row));
+        
+        sortAscending = !sortAscending;
+        toggleTableBtn.innerHTML = `<i class="fas fa-sort"></i> Sort by Date ${sortAscending ? '(Oldest First)' : '(Newest First)'}`;
+    });
+});
+</script>
+{% endblock %}

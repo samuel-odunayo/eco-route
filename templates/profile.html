@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chart.js/3.7.0/chart.min.css">
+<style>
+    .achievement-card {
+        transition: all 0.3s;
+        border: 2px solid transparent;
+    }
+    .achievement-card.unlocked {
+        border-color: #28a745;
+    }
+    .achievement-card.locked {
+        opacity: 0.6;
+    }
+    .achievement-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+    }
+    .achievement-icon {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+    }
+    .preference-section {
+        margin-bottom: 2rem;
+    }
+    .tab-pane {
+        padding: 1.5rem 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">Your Profile</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 text-center">
+                        <div class="mb-3">
+                            <div class="bg-light rounded-circle p-3 d-inline-block mb-3">
+                                <i class="fas fa-user fa-3x text-success"></i>
+                            </div>
+                            <h4>{{ current_user.username }}</h4>
+                            <p class="text-muted">Member since {{ current_user.created_at.strftime('%B %Y') }}</p>
+                        </div>
+                        <div class="d-grid">
+                            <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#editProfileModal">
+                                <i class="fas fa-pencil-alt"></i> Edit Profile
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-9">
+                        <ul class="nav nav-tabs" id="profileTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="stats-tab" data-bs-toggle="tab" data-bs-target="#stats" type="button" role="tab" aria-controls="stats" aria-selected="true">Stats</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="achievements-tab" data-bs-toggle="tab" data-bs-target="#achievements" type="button" role="tab" aria-controls="achievements" aria-selected="false">Achievements</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="preferences-tab" data-bs-toggle="tab" data-bs-target="#preferences" type="button" role="tab" aria-controls="preferences" aria-selected="false">Preferences</button>
+                            </li>
+                        </ul>
+                        <div class="tab-content" id="profileTabContent">
+                            <div class="tab-pane fade show active" id="stats" role="tabpanel" aria-labelledby="stats-tab">
+                                <div class="row mb-4">
+                                    <div class="col-md-4">
+                                        <div class="card h-100 bg-light">
+                                            <div class="card-body text-center">
+                                                <div class="text-success mb-2">
+                                                    <i class="fas fa-leaf fa-2x"></i>
+                                                </div>
+                                                <h5>Carbon Saved</h5>
+                                                <h3 class="text-success">{{ (carbon_stats.total_carbon_saved / 1000)|round(1) }} kg</h3>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card h-100 bg-light">
+                                            <div class="card-body text-center">
+                                                <div class="text-success mb-2">
+                                                    <i class="fas fa-route fa-2x"></i>
+                                                </div>
+                                                <h5>Routes Taken</h5>
+                                                <h3 class="text-success">{{ carbon_stats.total_routes }}</h3>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card h-100 bg-light">
+                                            <div class="card-body text-center">
+                                                <div class="text-success mb-2">
+                                                    <i class="fas fa-trophy fa-2x"></i>
+                                                </div>
+                                                <h5>Achievements</h5>
+                                                <h3 class="text-success">{{ unlocked_achievements }} / {{ total_achievements }}</h3>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <div class="card mb-4">
+                                            <div class="card-header bg-success text-white">
+                                                <h5 class="mb-0">Carbon Savings Over Time</h5>
+                                            </div>
+                                            <div class="card-body">
+                                                <canvas id="monthlySavingsChart" height="250"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card mb-4">
+                                            <div class="card-header bg-success text-white">
+                                                <h5 class="mb-0">Transport Types</h5>
+                                            </div>
+                                            <div class="card-body">
+                                                <canvas id="transportTypesChart" height="250"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="card">
+                                    <div class="card-header bg-success text-white">
+                                        <h5 class="mb-0">Environmental Impact</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="card bg-light mb-3">
+                                                    <div class="card-body text-center">
+                                                        <h5 class="card-title">Carbon Offset</h5>
+                                                        <p class="card-text">{{ carbon_stats.carbon_offset }} kg</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="card bg-light mb-3">
+                                                    <div class="card-body text-center">
+                                                        <h5 class="card-title">Energy Saved</h5>
+                                                        <p class="card-text">{{ carbon_stats.energy_saved }} kWh</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="tab-pane fade" id="achievements" role="tabpanel" aria-labelledby="achievements-tab">
+                                <div class="row">
+                                    {% for achievement in achievements %}
+                                        <div class="col-md-4">
+                                            <div class="card achievement-card {% if achievement.unlocked %} unlocked {% else %} locked {% endif %}">
+                                                <div class="card-body text-center">
+                                                    <div class="achievement-icon">
+                                                        <i class="fas fa-medal fa-3x"></i>
+                                                    </div>
+                                                    <h5>{{ achievement.name }}</h5>
+                                                    <p>{{ achievement.description }}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <div class="tab-pane fade" id="preferences" role="tabpanel" aria-labelledby="preferences-tab">
+                                <div class="preference-section">
+                                    <h5>Notification Preferences</h5>
+                                    <form>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="emailNotifications" {% if current_user.preferences.email_notifications %} checked {% endif %}>
+                                            <label class="form-check-label" for="emailNotifications">
+                                                Email Notifications
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="smsNotifications" {% if current_user.preferences.sms_notifications %} checked {% endif %}>
+                                            <label class="form-check-label" for="smsNotifications">
+                                                SMS Notifications
+                                            </label>
+                                        </div>
+                                    </form>
+                                </div>
+
+                                <div class="preference-section">
+                                    <h5>Privacy Settings</h5>
+                                    <form>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="profileVisibility" {% if current_user.preferences.profile_visibility %} checked {% endif %}>
+                                            <label class="form-check-label" for="profileVisibility">
+                                                Make Profile Public
+                                            </label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="dataSharing" {% if current_user.preferences.data_sharing %} checked {% endif %}>
+                                            <label class="form-check-label" for="dataSharing">
+                                                Share Data for Research
+                                            </label>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Profile Modal -->
+<div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="editProfileModalLabel">Edit Profile</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="post" action="{{ url_for('update_profile') }}">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" value="{{ current_user.username }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="bio" class="form-label">Bio</label>
+                        <textarea class="form-control" id="bio" name="bio" rows="3">{{ current_user.bio }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="profileImage" class="form-label">Profile Image</label>
+                        <input type="file" class="form-control" id="profileImage" name="profile_image">
+                    </div>
+                    <button type="submit" class="btn btn-success">Save Changes</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
