@@ -208,167 +208,149 @@
     </div>
   </div>
 </div>
-{% endif %} {% endblock %} {% block scripts %}
+{% endif %} {% endblock %} 
+
+{% block scripts %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-      {% if route_options %}
-      // Initialize the map
-      const map = L.map('map').setView([51.505, -0.09], 13);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      }).addTo(map);
+document.addEventListener('DOMContentLoaded', function() {
+    {% if route_options %}
 
-      // For demo purposes we'll create a simple route
-      // In a real app, we would get this from an API
-      const startMarker = L.marker([51.505, -0.09]).addTo(map)
-          .bindPopup('{{ start }}')
-          .openPopup();
+    const map = L.map('map').setView([20, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
 
-      const endMarker = L.marker([51.51, -0.1]).addTo(map)
-          .bindPopup('{{ end }}');
+    const routeColors = {
+        'walking': '#28a745',
+        'biking': '#20c997',
+        'bus': '#fd7e14',
+        'train': '#6f42c1',
+        'car': '#dc3545',
+        'rideshare': '#e83e8c'
+    };
 
-      // Create route lines for different transportation modes
-      const routeColors = {
-          'walking': '#28a745',
-          'biking': '#20c997',
-          'bus': '#fd7e14',
-          'train': '#6f42c1',
-          'car': '#dc3545',
-          'rideshare': '#e83e8c'
-      };
+    const routeLines = {};
+    let startCoords = null;
+    let endCoords = null;
 
-      const routeLines = {};
+    async function geocode(address) {
+        const res = await fetch(
+            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`,
+            { headers: { 'Accept-Language': 'en' } }
+        );
+        const data = await res.json();
+        if (data.length > 0) {
+            return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+        }
+        return null;
+    }
 
-      // Create a default route line (straight line between points)
-      const defaultLine = L.polyline([
-          [51.505, -0.09],
-          [51.51, -0.1]
-      ], {color: routeColors['car'], weight: 4}).addTo(map);
+    async function getRoute(start, end, mode) {
+        const osrmMode = {'walking':'foot','biking':'bike','car':'car','bus':'car','train':'car','rideshare':'car'}[mode] || 'car';
+        const url = `https://router.project-osrm.org/route/v1/${osrmMode}/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`;
+        try {
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.code === 'Ok') {
+                return data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+            }
+        } catch(e) {}
+        return [start, end]; // fallback straight line
+    }
 
-      // Simulate different routes
-      {% for mode in route_options.keys() %}
-      routeLines['{{ mode }}'] = L.polyline([
-          [51.505, -0.09],
-          {% if mode == 'walking' or mode == 'biking' %}
-          [51.508, -0.095],
-          [51.51, -0.1]
-          {% elif mode == 'bus' %}
-          [51.506, -0.095],
-          [51.509, -0.097],
-          [51.51, -0.1]
-          {% elif mode == 'train' %}
-          [51.507, -0.092],
-          [51.509, -0.095],
-          [51.51, -0.1]
-          {% else %}
-          [51.51, -0.1]
-          {% endif %}
-      ], {
-          color: routeColors['{{ mode }}'],
-          weight: 4,
-          opacity: 0
-      }).addTo(map);
-      {% endfor %}
+    async function initMap() {
+        const startAddress = '{{ start }}';
+        const endAddress = '{{ end }}';
 
-      // Fit map to bounds
-      map.fitBounds([
-          [51.505, -0.09],
-          [51.51, -0.1]
-      ]);
+        startCoords = await geocode(startAddress);
+        endCoords = await geocode(endAddress);
 
-      // Route selection functionality
-      const routeOptions = document.querySelectorAll('.route-option');
-      const routeDetails = document.getElementById('routeDetails');
+        if (!startCoords || !endCoords) {
+            document.getElementById('map').innerHTML = '<div class="alert alert-warning m-3">Could not find one of the locations. Try a more specific address.</div>';
+            return;
+        }
 
-      let selectedMode = null;
-      let selectedCard = null;
+        L.marker(startCoords).addTo(map).bindPopup('<b>Start:</b> ' + startAddress).openPopup();
+        L.marker(endCoords).addTo(map).bindPopup('<b>End:</b> ' + endAddress);
 
-      routeOptions.forEach(option => {
-          option.addEventListener('click', function() {
-              const mode = this.dataset.mode;
+        map.fitBounds([startCoords, endCoords], { padding: [50, 50] });
 
-              // Clear previous selection
-              if (selectedCard) {
-                  selectedCard.classList.remove('option-selected');
-              }
+        const modes = Object.keys({{ route_options|tojson|safe }});
+        for (const mode of modes) {
+            const coords = await getRoute(startCoords, endCoords, mode);
+            routeLines[mode] = L.polyline(coords, {
+                color: routeColors[mode] || '#3388ff',
+                weight: 5,
+                opacity: 0
+            }).addTo(map);
+        }
+    }
 
-              // Hide previous route line
-              if (selectedMode) {
-                  routeLines[selectedMode].setStyle({opacity: 0});
-              }
+    initMap();
 
-              // Select current option
-              this.classList.add('option-selected');
-              selectedCard = this;
-              selectedMode = mode;
+    // Route selection
+    const routeOptions = document.querySelectorAll('.route-option');
+    const routeDetails = document.getElementById('routeDetails');
+    let selectedMode = null;
+    let selectedCard = null;
 
-              // Show current route line
-              routeLines[mode].setStyle({opacity: 1});
+    routeOptions.forEach(option => {
+        option.addEventListener('click', function() {
+            const mode = this.dataset.mode;
+            if (selectedCard) selectedCard.classList.remove('option-selected');
+            if (selectedMode && routeLines[selectedMode]) routeLines[selectedMode].setStyle({opacity: 0});
 
-              // Update details
-              const modeData = JSON.parse('{{ route_options|tojson|safe }}')[mode];
-              document.getElementById('detailMode').textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
-              document.getElementById('detailDistance').textContent = modeData.distance + ' km';
-              document.getElementById('detailDuration').textContent =
-                  Math.floor(modeData.duration / 60) + 'h ' +
-                  Math.floor(modeData.duration % 60) + 'min';
-              document.getElementById('detailEmissions').textContent = Math.round(modeData.emissions);
+            this.classList.add('option-selected');
+            selectedCard = this;
+            selectedMode = mode;
 
-              // Calculate savings compared to car
-              const carEmissions = "{{ route_options.car.emissions }}";
-              const savings = carEmissions - modeData.emissions;
+            if (routeLines[mode]) routeLines[mode].setStyle({opacity: 1});
 
-              if (savings > 0) {
-                  document.getElementById('detailSavings').innerHTML =
-                      `<div class="alert alert-success">
-                          <i class="fas fa-seedling"></i> You save <strong>${Math.round(savings)} g CO2</strong> compared to driving
-                      </div>`;
-              } else {
-                  document.getElementById('detailSavings').innerHTML = '';
-              }
+            const modeData = JSON.parse('{{ route_options|tojson|safe }}')[mode];
+            document.getElementById('detailMode').textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
+            document.getElementById('detailDistance').textContent = modeData.distance + ' km';
+            document.getElementById('detailDuration').textContent =
+                Math.floor(modeData.duration / 60) + 'h ' + Math.floor(modeData.duration % 60) + 'min';
+            document.getElementById('detailEmissions').textContent = Math.round(modeData.emissions);
 
-              // Show route details
-              routeDetails.classList.remove('d-none');
-          });
-      });
+            const carEmissions = {{ route_options.car.emissions }};
+            const savings = carEmissions - modeData.emissions;
+            document.getElementById('detailSavings').innerHTML = savings > 0
+                ? `<div class="alert alert-success"><i class="fas fa-seedling"></i> You save <strong>${Math.round(savings)} g CO2</strong> compared to driving</div>`
+                : '';
 
-      // Save route functionality
-      const saveRouteBtn = document.getElementById('saveRoute');
-      if (saveRouteBtn) {
-          saveRouteBtn.addEventListener('click', function() {
-              if (!selectedMode) return;
+            routeDetails.classList.remove('d-none');
+        });
+    });
 
-              let modeData = JSON.parse('{{ route_options|tojson|safe }}')[selectedMode];
-              carEmissions = "{{ route_options.car.emissions|tojson }}";
-              const carbonSaved = Math.max(0, carEmissions - modeData.emissions);
+    // Save route
+    const saveRouteBtn = document.getElementById('saveRoute');
+    if (saveRouteBtn) {
+        saveRouteBtn.addEventListener('click', function() {
+            if (!selectedMode) return;
+            const modeData = JSON.parse('{{ route_options|tojson|safe }}')[selectedMode];
+            const carEmissions = {{ route_options.car.emissions }};
+            const carbonSaved = Math.max(0, carEmissions - modeData.emissions);
 
-              fetch('/api/save_route', {
-                  method: 'POST',
-                  headers: {
-                      'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                      start: '{{ start }}',
-                      end: '{{ end }}',
-                      distance: modeData.distance,
-                      transport_mode: selectedMode,
-                      carbon_saved: carbonSaved
-                  })
-              })
-              .then(response => response.json())
-              .then(data => {
-                  if (data.success) {
-                      alert('Route saved successfully!');
-                  }
-              })
-              .catch(error => {
-                  console.error('Error saving route:', error);
-                  alert('Failed to save route. Please try again.');
-              });
-          });
-      }
-      {% endif %}
-  });
+            fetch('/api/save_route', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    start: '{{ start }}',
+                    end: '{{ end }}',
+                    distance: modeData.distance,
+                    transport_mode: selectedMode,
+                    carbon_saved: carbonSaved
+                })
+            })
+            .then(r => r.json())
+            .then(data => { if (data.success) alert('Route saved successfully!'); })
+            .catch(() => alert('Failed to save route. Please try again.'));
+        });
+    }
+
+    {% endif %}
+});
 </script>
 {% endblock %}
