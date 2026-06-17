@@ -35,7 +35,7 @@ def get_osrm_route(start, end, mode):
             route = data['routes'][0]
             return {
                 'distance': round(route['distance'] / 1000, 2),  # km
-                'duration': round(route['duration'] / 60, 1)     # minutes
+                'duration': round(route['duration'] / 60)     # minutes
             }
     except Exception:
         pass
