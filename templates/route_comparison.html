@@ -115,8 +115,7 @@
             data.distance }} km
           </li>
           <li>
-            <i class="fas fa-clock text-muted me-2"></i> Time: {{ (data.duration
-            // 60)|int }}h {{ (data.duration % 60)|int }}min
+            <i class="fas fa-clock text-muted me-2"></i> Time: {{ (data.duration // 60)|int }}h {{ (data.duration % 60)|int }}min
           </li>
           <li>
             <i class="fas fa-leaf text-muted me-2"></i> Emissions: {{
@@ -311,7 +310,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('detailMode').textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
             document.getElementById('detailDistance').textContent = modeData.distance + ' km';
             document.getElementById('detailDuration').textContent =
-                Math.floor(modeData.duration / 60) + 'h ' + Math.floor(modeData.duration % 60) + 'min';
+                Math.floor(modeData.duration / 60) + 'h ' + Math.round(modeData.duration % 60) + 'min';
             document.getElementById('detailEmissions').textContent = Math.round(modeData.emissions);
 
             const carEmissions = {{ route_options.car.emissions }};
