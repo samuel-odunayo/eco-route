@@ -106,23 +106,19 @@ class MapsAPI:
         }
     
     def geocode(self, address):
-        """
-        Convert address to coordinates
-        
-        Args:
-            address (str): Address to geocode
-            
-        Returns:
-            tuple: (latitude, longitude) or None if geocoding fails
-        """
-        hash_val = sum(ord(c) for c in address) % 100
-        
-        base_lat, base_lng = 37.7749, -122.4194
-        
-        lat = base_lat + (hash_val / 1000)
-        lng = base_lng + (hash_val / 1000)
-        
-        return (lat, lng)
+    url = "https://nominatim.openstreetmap.org/search"
+    try:
+        response = requests.get(url, params={
+            'q': address,
+            'format': 'json',
+            'limit': 1
+        }, headers={'User-Agent': 'eco-route-app'})
+        data = response.json()
+        if data:
+            return (float(data[0]['lat']), float(data[0]['lon']))
+        return None
+    except Exception:
+        return None
     
     def _convert_transport_mode(self, mode):
         """Convert between app transport modes and API modes"""
