@@ -52,11 +52,12 @@
     <main class="container mt-4">
         {% with messages = get_flashed_messages() %}
         {% if messages %}
-        <div class="alert alert-info">
             {% for message in messages %}
-            <p>{{ message }}</p>
+            <div class="alert alert-warning alert-dismissible fade show mx-3 mt-2" role="alert">
+                <i class="fas fa-exclamation-triangle"></i> {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
             {% endfor %}
-        </div>
         {% endif %}
         {% endwith %}
 
