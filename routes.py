@@ -143,7 +143,7 @@ def init_routes(app, db):
                                total_carbon_saved=total_carbon_saved)
 
     @app.route('/route', methods=['GET', 'POST'])
-@app.route('/route', methods=['GET', 'POST'])
+    @app.route('/route', methods=['GET', 'POST'])
     def route_comparison():
         if request.method == 'POST':
             start = request.form.get('start', '').strip()
