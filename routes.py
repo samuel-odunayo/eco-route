@@ -143,31 +143,33 @@ def init_routes(app, db):
                                total_carbon_saved=total_carbon_saved)
 
     @app.route('/route', methods=['GET', 'POST'])
-def route_comparison():
-    if request.method == 'POST':
-        start = request.form.get('start', '').strip()
-        end = request.form.get('end', '').strip()
+@app.route('/route', methods=['GET', 'POST'])
+    def route_comparison():
+        if request.method == 'POST':
+            start = request.form.get('start', '').strip()
+            end = request.form.get('end', '').strip()
 
-        if not start or not end:
-            flash('Please enter both a start and destination.')
-            return redirect(url_for('route_comparison'))
+            if not start or not end:
+                flash('Please enter both a start and destination.')
+                return redirect(url_for('route_comparison'))
 
-        start_coords = geocode(start)
-        end_coords = geocode(end)
+            start_coords = geocode(start)
+            end_coords = geocode(end)
 
-        if not start_coords:
-            flash(f'Could not find "{start}". Try a more specific address.')
-            return render_template('route_comparison.html', start=start, end=end)
+            if not start_coords:
+                flash(f'Could not find "{start}". Try a more specific address.')
+                return render_template('route_comparison.html', start=start, end=end)
 
-        if not end_coords:
-            flash(f'Could not find "{end}". Try a more specific address.')
-            return render_template('route_comparison.html', start=start, end=end)
+            if not end_coords:
+                flash(f'Could not find "{end}". Try a more specific address.')
+                return render_template('route_comparison.html', start=start, end=end)
 
-        route_options = get_route_options(start, end)
-        return render_template('route_comparison.html',
-                               start=start, end=end,
-                               route_options=route_options)
-    return render_template('route_comparison.html')
+            route_options = get_route_options(start, end)
+            return render_template('route_comparison.html',
+                                   start=start, end=end,
+                                   route_options=route_options)
+        return render_template('route_comparison.html')
+
     @app.route('/profile')
     @login_required
     def profile():
@@ -182,16 +184,16 @@ def route_comparison():
         carbon_kg = total_carbon_saved / 1000
 
         all_achievements = [
-            {'id': 'carbon_1kg',  'name': 'Carbon Cutter',       'description': 'Save 1kg of CO2',              'unlocked': carbon_kg >= 1},
-            {'id': 'carbon_10kg', 'name': 'Climate Guardian',     'description': 'Save 10kg of CO2',             'unlocked': carbon_kg >= 10},
-            {'id': 'carbon_100kg','name': 'Earth Defender',       'description': 'Save 100kg of CO2',            'unlocked': carbon_kg >= 100},
-            {'id': 'routes_5',    'name': 'Eco Commuter',         'description': 'Take 5 eco-friendly routes',   'unlocked': total_routes >= 5},
-            {'id': 'routes_20',   'name': 'Green Navigator',      'description': 'Take 20 eco-friendly routes',  'unlocked': total_routes >= 20},
-            {'id': 'routes_50',   'name': 'Sustainable Explorer', 'description': 'Take 50 eco-friendly routes',  'unlocked': total_routes >= 50},
-            {'id': 'walking_5',   'name': 'Walker',               'description': 'Walk for 5 journeys',          'unlocked': transport_modes.get('walking', 0) >= 5},
-            {'id': 'biking_5',    'name': 'Cyclist',              'description': 'Cycle for 5 journeys',         'unlocked': transport_modes.get('biking', 0) >= 5},
-            {'id': 'bus_5',       'name': 'Bus Patron',           'description': 'Take the bus for 5 journeys',  'unlocked': transport_modes.get('bus', 0) >= 5},
-            {'id': 'train_5',     'name': 'Train Traveler',       'description': 'Take the train for 5 journeys','unlocked': transport_modes.get('train', 0) >= 5},
+            {'id': 'carbon_1kg',   'name': 'Carbon Cutter',       'description': 'Save 1kg of CO2',               'unlocked': carbon_kg >= 1},
+            {'id': 'carbon_10kg',  'name': 'Climate Guardian',     'description': 'Save 10kg of CO2',              'unlocked': carbon_kg >= 10},
+            {'id': 'carbon_100kg', 'name': 'Earth Defender',       'description': 'Save 100kg of CO2',             'unlocked': carbon_kg >= 100},
+            {'id': 'routes_5',     'name': 'Eco Commuter',         'description': 'Take 5 eco-friendly routes',    'unlocked': total_routes >= 5},
+            {'id': 'routes_20',    'name': 'Green Navigator',      'description': 'Take 20 eco-friendly routes',   'unlocked': total_routes >= 20},
+            {'id': 'routes_50',    'name': 'Sustainable Explorer', 'description': 'Take 50 eco-friendly routes',   'unlocked': total_routes >= 50},
+            {'id': 'walking_5',    'name': 'Walker',               'description': 'Walk for 5 journeys',           'unlocked': transport_modes.get('walking', 0) >= 5},
+            {'id': 'biking_5',     'name': 'Cyclist',              'description': 'Cycle for 5 journeys',          'unlocked': transport_modes.get('biking', 0) >= 5},
+            {'id': 'bus_5',        'name': 'Bus Patron',           'description': 'Take the bus for 5 journeys',   'unlocked': transport_modes.get('bus', 0) >= 5},
+            {'id': 'train_5',      'name': 'Train Traveler',       'description': 'Take the train for 5 journeys', 'unlocked': transport_modes.get('train', 0) >= 5},
         ]
 
         carbon_stats = {
@@ -202,12 +204,10 @@ def route_comparison():
             'energy_saved': round(carbon_kg * 3.6, 2),
         }
 
-        unlocked = sum(1 for a in all_achievements if a['unlocked'])
-
         return render_template('profile.html',
                                carbon_stats=carbon_stats,
                                achievements=all_achievements,
-                               unlocked_achievements=unlocked,
+                               unlocked_achievements=sum(1 for a in all_achievements if a['unlocked']),
                                total_achievements=len(all_achievements))
 
     @app.route('/profile/update', methods=['POST'])
@@ -227,32 +227,33 @@ def route_comparison():
     @login_required
     def save_route():
         data = request.get_json()
-        start = data.get('start')
-        end = data.get('end')
-        distance = data.get('distance')
-        transport_mode = data.get('transport_mode')
-        carbon_saved = data.get('carbon_saved')
-
-        route = Route.query.filter_by(start_location=start, end_location=end).first()
+        route = Route.query.filter_by(
+            start_location=data.get('start'),
+            end_location=data.get('end')
+        ).first()
         if not route:
-            route = Route(start_location=start, end_location=end, distance=distance)
+            route = Route(
+                start_location=data.get('start'),
+                end_location=data.get('end'),
+                distance=data.get('distance')
+            )
             db.session.add(route)
             db.session.commit()
 
         saved_route = SavedRoute(
             user_id=current_user.id,
             route_id=route.id,
-            transport_mode=transport_mode,
-            carbon_saved=carbon_saved
+            transport_mode=data.get('transport_mode'),
+            carbon_saved=data.get('carbon_saved')
         )
         db.session.add(saved_route)
         db.session.commit()
         return jsonify({'success': True})
 
-    @app.route('/api/route_options', methods=['GET'])
+    @app.route('/api/route_options')
     def api_route_options():
         start = request.args.get('start')
         end = request.args.get('end')
         if not start or not end:
-            return jsonify({'error': 'Missing start or end parameters'}), 400
+            return jsonify({'error': 'Missing parameters'}), 400
         return jsonify(get_route_options(start, end))
