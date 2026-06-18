@@ -143,16 +143,31 @@ def init_routes(app, db):
                                total_carbon_saved=total_carbon_saved)
 
     @app.route('/route', methods=['GET', 'POST'])
-    def route_comparison():
-        if request.method == 'POST':
-            start = request.form.get('start')
-            end = request.form.get('end')
-            route_options = get_route_options(start, end)
-            return render_template('route_comparison.html',
-                                   start=start, end=end,
-                                   route_options=route_options)
-        return render_template('route_comparison.html')
+def route_comparison():
+    if request.method == 'POST':
+        start = request.form.get('start', '').strip()
+        end = request.form.get('end', '').strip()
 
+        if not start or not end:
+            flash('Please enter both a start and destination.')
+            return redirect(url_for('route_comparison'))
+
+        start_coords = geocode(start)
+        end_coords = geocode(end)
+
+        if not start_coords:
+            flash(f'Could not find "{start}". Try a more specific address.')
+            return render_template('route_comparison.html', start=start, end=end)
+
+        if not end_coords:
+            flash(f'Could not find "{end}". Try a more specific address.')
+            return render_template('route_comparison.html', start=start, end=end)
+
+        route_options = get_route_options(start, end)
+        return render_template('route_comparison.html',
+                               start=start, end=end,
+                               route_options=route_options)
+    return render_template('route_comparison.html')
     @app.route('/profile')
     @login_required
     def profile():
