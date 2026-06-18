@@ -66,11 +66,16 @@
                 required
               />
             </div>
+
             <div class="col-md-2 d-flex align-items-end">
-              <button type="submit" class="btn btn-success w-100">
-                <i class="fas fa-search"></i> Find Routes
+              <button type="submit" class="btn btn-success w-100" id="searchBtn" onclick="return showLoading()">
+                <span id="btnText"><i class="fas fa-search"></i> Find Routes</span>
+                <span id="btnSpinner" class="d-none">
+                  <span class="spinner-border spinner-border-sm" role="status"></span>
+                  Finding routes...
+                </span>
               </button>
-            </div>
+            </div>          
           </div>
         </form>
       </div>
